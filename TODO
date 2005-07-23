@@ -1,0 +1,11 @@
+The following are known bugs (or otherwise things that just need getting fixed):
+
+- Caustics need to take into consideration the distortion when in spherical projection
+
+
+The following are features planned to be eventually added:
+
+- i18n support
+- more basis functions
+- support multithreaded render
+
