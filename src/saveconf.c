@@ -25,6 +25,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <locale.h>
 
 #include <libgimp/gimp.h>
 #include <libgimp/gimpui.h>
@@ -35,10 +36,14 @@
 int SaveConfig(const char *filename, PluginState *state) {
 	FILE *file;
 	char *gradient;
+	char *loc;
 
 	file = fopen(filename,"wt");
 	if (!file) return -1;
 
+	loc = setlocale(LC_NUMERIC,NULL);
+	setlocale(LC_NUMERIC,"C");
+	
 	fprintf(file,PRESET_HEADER " v" PACKAGE_VERSION " for the GIMP\n");
 	fprintf(file,"# Preset file\n\n");
 	if (!state->random_seed) {
@@ -91,6 +96,8 @@ int SaveConfig(const char *filename, PluginState *state) {
 
 	
 	fprintf(file,"\n");
+
+	setlocale(LC_NUMERIC,loc);
 
 	fclose(file);
 

@@ -526,7 +526,7 @@ dialog (gint32 image_ID,
 	
 	gimp_ui_init (PLUGIN_NAME, TRUE);
 
-	dlg = gimp_dialog_new ("Felimage Noise", PLUGIN_NAME,
+	dlg = gimp_dialog_new ("Felimage Noise " PACKAGE_VERSION, PLUGIN_NAME,
 	                       NULL, 0,
 	                       gimp_standard_help_func, "plug-in-template",
 	                       GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,

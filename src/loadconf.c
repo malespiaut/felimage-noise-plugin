@@ -25,6 +25,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <locale.h>
 
 #include <libgimp/gimp.h>
 #include <libgimp/gimpui.h>
@@ -172,15 +173,20 @@ static void PostParse(PluginState *state) {
 void ParseConfig(PluginState *state, const char *cfg) {
 	char **lines;
 	int n;
+	char *loc;
 
 	lines = g_strsplit_set(cfg, ",\n", -1);
 
 	SetStateToDefaults(state);
 	
+	loc = setlocale(LC_NUMERIC,NULL);
+	setlocale(LC_NUMERIC,"C");
+
 	for (n = 0; lines[n]; n++) {
 		ParseIncremental(state, lines[n]);
 	}
 
+	setlocale(LC_NUMERIC,loc);
 	PostParse(state);
 
 	g_strfreev(lines);
@@ -190,6 +196,8 @@ void ParseConfig(PluginState *state, const char *cfg) {
 int LoadConfig(const char *filename, PluginState *state){
 	FILE *file;
 	char *buffer;
+	char *loc;
+
 	file = fopen(filename,"rt");
 	if (!file) return -1;
 
@@ -197,10 +205,14 @@ int LoadConfig(const char *filename, PluginState *state){
 
 	buffer = g_malloc(1024);
 	
+	loc = setlocale(LC_NUMERIC,NULL);
+	setlocale(LC_NUMERIC,"C");
+
 	while (fgets(buffer, 1024, file)) {
 		ParseIncremental(state, buffer);
 	}
 	
+	setlocale(LC_NUMERIC,loc);
 	PostParse(state);
 
 	g_free(buffer);
