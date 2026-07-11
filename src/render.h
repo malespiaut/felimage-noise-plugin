@@ -92,7 +92,7 @@ typedef struct RenderDataStr {
 
 GimpPixelFetcher *GetPixelFetcher(PluginState *state, GimpDrawable *drawable);
 
-void Render (gint32 image_ID,
+void Render (GimpImage *image,
 		GimpDrawable *drawable,
 		PluginState *state);
 

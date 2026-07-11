@@ -55,8 +55,7 @@
 #ifndef __MAIN_H__
 #define __MAIN_H__
 
-#define PROCEDURE_NAME   "plug_in_fimg_noise"
-#define DATA_KEY_STATE   "fimg_noise_data"
+#define PROCEDURE_NAME   "plug-in-fimg-noise"
 #define PLUGIN_DESCR	 "Felimage Noise Plugin"
 #define PRESET_HEADER    "# Felimage Noise Plugin"
 #define PRESET_EXTENSION ".fnp"
@@ -145,7 +144,7 @@ gchar *GetGradientName(const gchar *gradient_name);
 
 /* we hide this, are we're not including the GIMP headers for calibration */
 #ifndef CALIBRATE
-gboolean dialog (gint32 image_ID,
+gboolean dialog (GimpImage *image,
             GimpDrawable *drawable,
             PluginState *state);
 #endif /* CALIBRATE */
