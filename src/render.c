@@ -1007,7 +1007,6 @@ void Warp(RenderData *rdat, PixelFetcher *fetcher, guchar *dest, int row_stride,
 	double area_inv;
 	double v[4];
 	double sum[4];
-	double average;
 	int x_samples, y_samples;
 	double caustics_x,caustics_y;
 	double f1,f2;
@@ -1039,7 +1038,6 @@ void Warp(RenderData *rdat, PixelFetcher *fetcher, guchar *dest, int row_stride,
 	caustics_x = rdat->caustic_coef_x;
 	caustics_y = rdat->caustic_coef_y;
 	sampling = state->warp_quality;
-	average = rdat->average;
 
 	
 	switch (bytes_pp) {

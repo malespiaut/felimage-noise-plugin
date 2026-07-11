@@ -74,7 +74,7 @@ int SaveConfig(const char *filename, PluginState *state) {
 	switch (state->color_src) {
 		case COL_FG_BG: break;
 		case COL_GRADIENT:
-				if (state->gradient) {
+				if (state->gradient[0]) {
 					gradient = GetGradientName(state->gradient);
 					fprintf(file,"gradient:      %s\n",gradient);
 					g_free(gradient);

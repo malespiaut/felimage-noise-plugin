@@ -379,7 +379,7 @@ TURB5D(LatticeTurb5D_1,/* no extra vars */,
 
 
 FUNC3D(Cell3D_1, 
-       double f[3]; double delta[3][3]; int id[3];,  /* extra vars */
+       double f[3]; double delta[3][3]; guint32 id[3];,  /* extra vars */
        Cells3D(PARAM_3D, 2, f, delta, id, (CellBasisCache3D *) data ), /* common calculation */
        value += (f[1] - f[0]) * weight[i],
        value *= MULTI_MIX_1(f[1] - f[0], weight[i], CELL1_3D_MID, CELL1_3D_FAC),
@@ -389,7 +389,7 @@ FUNC3D(Cell3D_1,
 
 /**/
 FUNC4D(Cell4D_1, 
-       double f[3]; double delta[3][4]; int id[3];,  /* extra vars */
+       double f[3]; double delta[3][4]; guint32 id[3];,  /* extra vars */
        Cells4D(PARAM_4D, 2, f, delta, id, (CellBasisCache4D *) data ), /* common calculation */
        value += (f[1] - f[0]) * weight[i],
        value *= MULTI_MIX_1(f[1] - f[0], weight[i], CELL1_4D_MID, CELL1_4D_FAC),
@@ -398,7 +398,7 @@ FUNC4D(Cell4D_1,
 
 /**/
 FUNC5D(Cell5D_1, 
-       double f[3]; double delta[3][5]; int id[3];,  /* extra vars */
+       double f[3]; double delta[3][5]; guint32 id[3];,  /* extra vars */
        Cells5D(PARAM_5D, 2, f, delta, id, (CellBasisCache5D *) data ), /* common calculation */
        value += (f[1] - f[0]) * weight[i],
        value *= MULTI_MIX_1(f[1] - f[0], weight[i], CELL1_5D_MID, CELL1_5D_FAC),
@@ -409,7 +409,7 @@ FUNC5D(Cell5D_1,
 
 /**/
 FUNC3D(Cell3D_2, 
-       double f[3]; double delta[3][3]; int id[3];,  /* extra vars */
+       double f[3]; double delta[3][3]; guint32 id[3];,  /* extra vars */
        Cells3D(PARAM_3D, 2, f, delta, id, (CellBasisCache3D *) data ), /* common calculation */
        value += f[0] * weight[i],
        value *= MULTI_MIX_1(f[0], weight[i], CELL2_3D_MID, CELL2_3D_FAC),
@@ -418,7 +418,7 @@ FUNC3D(Cell3D_2,
 
 /**/
 FUNC4D(Cell4D_2, 
-       double f[3]; double delta[3][4]; int id[3];,  /* extra vars */
+       double f[3]; double delta[3][4]; guint32 id[3];,  /* extra vars */
        Cells4D(PARAM_4D, 2, f, delta, id, (CellBasisCache4D *) data ), /* common calculation */
        value += f[0] * weight[i],
        value *= MULTI_MIX_1(f[0], weight[i], CELL2_4D_MID, CELL2_4D_FAC),
@@ -427,7 +427,7 @@ FUNC4D(Cell4D_2,
 
 /**/
 FUNC5D(Cell5D_2, 
-       double f[3]; double delta[3][5]; int id[3];,  /* extra vars */
+       double f[3]; double delta[3][5]; guint32 id[3];,  /* extra vars */
        Cells5D(PARAM_5D, 2, f, delta, id, (CellBasisCache5D *) data ), /* common calculation */
        value += f[0] * weight[i],
        value *= MULTI_MIX_1(f[0], weight[i], CELL2_5D_MID, CELL2_5D_FAC),
@@ -438,7 +438,7 @@ FUNC5D(Cell5D_2,
 
 /**/
 FUNC3D(Cell3D_3, 
-       double f[3]; double delta[3][3]; int id[3];,  /* extra vars */
+       double f[3]; double delta[3][3]; guint32 id[3];,  /* extra vars */
        Cells3D(PARAM_3D, 2, f, delta, id, (CellBasisCache3D *) data ), /* common calculation */
        value += f[1] * weight[i],
        value *= MULTI_MIX_1(f[1], weight[i], CELL3_3D_MID, CELL3_3D_FAC),
@@ -447,7 +447,7 @@ FUNC3D(Cell3D_3,
 
 /**/
 FUNC4D(Cell4D_3, 
-       double f[3]; double delta[3][4]; int id[3];,  /* extra vars */
+       double f[3]; double delta[3][4]; guint32 id[3];,  /* extra vars */
        Cells4D(PARAM_4D, 2, f, delta, id, (CellBasisCache4D *) data ), /* common calculation */
        value += f[1] * weight[i],
        value *= MULTI_MIX_1(f[1], weight[i], CELL3_4D_MID, CELL3_4D_FAC),
@@ -456,7 +456,7 @@ FUNC4D(Cell4D_3,
 
 /**/
 FUNC5D(Cell5D_3, 
-       double f[3]; double delta[3][5]; int id[3];,  /* extra vars */
+       double f[3]; double delta[3][5]; guint32 id[3];,  /* extra vars */
        Cells5D(PARAM_5D, 2, f, delta, id, (CellBasisCache5D *) data ), /* common calculation */
        value += f[1] * weight[i],
        value *= MULTI_MIX_1(f[1], weight[i], CELL3_5D_MID, CELL3_5D_FAC),
@@ -467,7 +467,7 @@ FUNC5D(Cell5D_3,
 
 /**/
 FUNC3D(Cell3D_4, 
-       double f[3]; double delta[3][3]; int id[3];,  /* extra vars */
+       double f[3]; double delta[3][3]; guint32 id[3];,  /* extra vars */
        Cells3D(PARAM_3D, 2, f, delta, id, (CellBasisCache3D *) data ), /* common calculation */
        value += (Hash1(id[0]) * (1.0/(TABLE_SIZE-1))) * weight[i],
        value *= MULTI_MIX_1(Hash1(id[0]) * (1.0/(TABLE_SIZE-1)), weight[i], CELL4_3D_MID, CELL4_3D_FAC),
@@ -476,7 +476,7 @@ FUNC3D(Cell3D_4,
 
 /**/
 FUNC4D(Cell4D_4, 
-       double f[3]; double delta[3][4]; int id[3];,  /* extra vars */
+       double f[3]; double delta[3][4]; guint32 id[3];,  /* extra vars */
        Cells4D(PARAM_4D, 2, f, delta, id, (CellBasisCache4D *) data ), /* common calculation */
        value += (Hash1(id[0]) * (1.0/(TABLE_SIZE-1))) * weight[i],
        value *= MULTI_MIX_1(Hash1(id[0]) * (1.0/(TABLE_SIZE-1)), weight[i], CELL4_4D_MID, CELL4_4D_FAC),
@@ -485,7 +485,7 @@ FUNC4D(Cell4D_4,
 
 /**/
 FUNC5D(Cell5D_4, 
-       double f[3]; double delta[3][5]; int id[3];,  /* extra vars */
+       double f[3]; double delta[3][5]; guint32 id[3];,  /* extra vars */
        Cells5D(PARAM_5D, 2, f, delta, id, (CellBasisCache5D *) data ), /* common calculation */
        value += (Hash1(id[0]) * (1.0/(TABLE_SIZE-1))) * weight[i],
        value *= MULTI_MIX_1(Hash1(id[0]) * (1.0/(TABLE_SIZE-1)), weight[i], CELL4_5D_MID, CELL4_5D_FAC),
@@ -497,7 +497,7 @@ FUNC5D(Cell5D_4,
 
 /**/
 FUNC3D(Cell3D_5, 
-       double f[3]; double delta[3][3]; int id[3]; double v[3]; double n;,  /* extra vars */
+       double f[3]; double delta[3][3]; guint32 id[3]; double v[3]; double n;,  /* extra vars */
        Cells3D(PARAM_3D, 1, f, delta, id, (CellBasisCache3D *) data );
        v[0] = (Hash1(id[0]) - ((TABLE_SIZE-1)*0.5));
        v[1] = (Hash1(id[0]+1) - ((TABLE_SIZE-1)*0.5));
@@ -515,7 +515,7 @@ FUNC3D(Cell3D_5,
 
 /**/
 FUNC4D(Cell4D_5, 
-       double f[3]; double delta[3][4]; int id[3]; double v[4]; double n;,  /* extra vars */
+       double f[3]; double delta[3][4]; guint32 id[3]; double v[4]; double n;,  /* extra vars */
        Cells4D(PARAM_4D, 1, f, delta, id, (CellBasisCache4D *) data );
        v[0] = (Hash1(id[0]) - ((TABLE_SIZE-1)*0.5));
        v[1] = (Hash1(id[0]+1) - ((TABLE_SIZE-1)*0.5));
@@ -534,7 +534,7 @@ FUNC4D(Cell4D_5,
 
 /**/
 FUNC5D(Cell5D_5, 
-       double f[3]; double delta[3][5]; int id[3]; double v[5]; double n;,  /* extra vars */
+       double f[3]; double delta[3][5]; guint32 id[3]; double v[5]; double n;,  /* extra vars */
        Cells5D(PARAM_5D, 1, f, delta, id, (CellBasisCache5D *) data );
        v[0] = (Hash1(id[0]) - ((TABLE_SIZE-1)*0.5));
        v[1] = (Hash1(id[0]+1) - ((TABLE_SIZE-1)*0.5));
