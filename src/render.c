@@ -352,8 +352,8 @@ static void PrecalcRenderStuff(RenderData *rdat) {
 				g_object_unref(bg_color);
 
 				col_fg_bg[0] -= col_bg[0];
-				col_fg_bg[1] -= col_bg[2];
-				col_fg_bg[2] -= col_bg[1];
+				col_fg_bg[1] -= col_bg[1];
+				col_fg_bg[2] -= col_bg[2];
 				col_fg_bg[3] -= col_bg[3];
 
 
