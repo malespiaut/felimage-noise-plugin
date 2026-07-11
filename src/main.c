@@ -108,7 +108,7 @@ const PluginState default_state = {
 
 				    0,  /* warp caustics percentage */
 				    0,  /* warp rendering quality */
-				    GIMP_PIXEL_FETCHER_EDGE_WRAP,  /* edge action */
+				    EDGE_WRAP,  /* edge action */
 
 				    {0}, /* gradient */
 
@@ -182,84 +182,26 @@ static void query (void) {
 }
 
 
-gchar *GetMD5Text(guchar *md5){
-	static gchar txt[32];
-	int i;
-	gchar a[]="0123456789ABCDEF";
-
-	for (i = 0; i < 16; i++) {
-		txt[2*i] = a[(md5[i]>>4)&15];
-		txt[2*i+1] = a[md5[i]&15];
-	}
-	txt[32] = 0;
-	return txt;
-}
-
-
 void SetStateToDefaults(PluginState *state) {
 	*state = default_state;
 }
 
-/* Because we can't pass pointers to dynamically allocated data between calls, we store
- * the name of the gradient as a 16 byte data (which is only the MD5 of the 
- * actual gradient name 
+/* The gradient is stored by name; these helpers are kept so callers don't
+ * have to deal with the fixed-size buffer directly.
  */
 void StoreGradientName(PluginState *state, const gchar *name){
-	gchar *grad_name;
-
 	if (name) {
-		grad_name = g_utf8_strup(name,-1);
-		g_assert(grad_name);
-		gimp_md5_get_digest (grad_name, strlen(grad_name), state->gradient);
-		g_free(grad_name);
+		g_strlcpy(state->gradient, name, sizeof(state->gradient));
 	} else {
-		memset(state->gradient,0,16);
+		memset(state->gradient, 0, sizeof(state->gradient));
 	}
 }
 
 
-gchar *GetGradientName(const guchar *gradient_hash){
-	gchar**    gradient;
-	guchar md5[16];
-	gchar *grad_name=NULL;
-	gchar *final_name = NULL;
-	gint tot_gradients;
-	int i,j;
+gchar *GetGradientName(const gchar *gradient_name){
+	if (!gradient_name || !gradient_name[0]) return NULL;
 
-	if (!gradient_hash) return NULL;
-
-	/*g_printf("\n\nLooking for gradient with hash %s\n",GetMD5Text(gradient_hash));*/
-
-	gradient = gimp_gradients_get_list(NULL, &tot_gradients);
-
-	g_assert(gradient);
-
-	for (i=0; i<tot_gradients; i++) {
-		
-		grad_name = g_utf8_strup(gradient[i],-1);
-		g_assert(grad_name);
-
-		gimp_md5_get_digest(grad_name, strlen(grad_name), md5);
-
-		g_free(grad_name);
-
-		
-		for (j = 0; j < 16; j++) {
-			if (md5[j] != gradient_hash[j]) break;
-		}
-		if (j == 16) {
-			final_name = g_strdup(gradient[i]);
-			break;
-		}
-	}
-
-	if (!final_name) {
-		final_name = g_strdup(gradient[0]);
-	}
-
-	g_free(gradient);
-
-	return final_name;
+	return g_strdup(gradient_name);
 }
 
 static void run (const gchar *name,

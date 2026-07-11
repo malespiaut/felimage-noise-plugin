@@ -73,6 +73,8 @@ enum {BASIS_LNOISE, BASIS_LTURB_1, BASIS_SNOISE, BASIS_STURB_1,
 enum {FUNC_RAMP, FUNC_TRIANGLE, FUNC_SINE, FUNC_HALF_SINE};
 enum {MAP_PLANAR,MAP_TILED,MAP_SPHERICAL,MAP_RADIAL};
 enum {CHAN_1, CHAN_1_INV, CHAN_2, CHAN_2_INV, CHAN_3, CHAN_3_INV, CHAN_4, CHAN_4_INV, CHAN_MAX, CHAN_MED, CHAN_MIN};
+/* matches the order of edge_action_names */
+enum {EDGE_WRAP, EDGE_SMEAR, EDGE_BLACK, EDGE_BACKGROUND};
 
 extern const char *mapping_names[];
 extern const char *basis_names[];
@@ -118,7 +120,7 @@ typedef struct {
 	gint8 warp_quality;
 	gint8 edge_action;
 
-	gint8 gradient[16]; /* gradient name hash */
+	gchar gradient[256]; /* gradient name */
 
 	gfloat phase;
 
@@ -139,7 +141,7 @@ void SetStateToDefaults(PluginState *state);
 
 void StoreGradientName(PluginState *state, const gchar *name);
 
-gchar *GetGradientName(const guchar *gradient_hash);
+gchar *GetGradientName(const gchar *gradient_name);
 
 /* we hide this, are we're not including the GIMP headers for calibration */
 #ifndef CALIBRATE
