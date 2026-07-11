@@ -1,2 +1,10 @@
+2026-07-11	Marc-Alexandre Espiaut	<factures.mae@posteo.eu>
+	* Port to GIMP 3 and CMake, 0.2.0
+	  - GimpPlugIn entry point with typed procedure arguments
+	    (procedure renamed to plug-in-fimg-noise)
+	  - rendering on GeglBuffer, dialog on GTK3
+	  - fixed the FG-to-BG green/blue channel swap
+	  - .fnp preset files remain compatible
+
 2005-07-22	Guillermo Romero Franco	<drirr_gato@uosers.sourceforge.net>
 	* Initial release, 0.1.0
