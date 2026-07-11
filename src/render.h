@@ -90,7 +90,15 @@ typedef struct RenderDataStr {
 
 #ifndef CALIBRATE
 
-GimpPixelFetcher *GetPixelFetcher(PluginState *state, GimpDrawable *drawable);
+/* in-memory snapshot of the source drawable with edge-mode handling;
+ * replaces GIMP 2's GimpPixelFetcher */
+typedef struct PixelFetcherStr PixelFetcher;
+
+PixelFetcher *NewPixelFetcher(PluginState *state, GimpDrawable *drawable);
+void DestroyPixelFetcher(PixelFetcher *fetcher);
+void FetchPixel(PixelFetcher *fetcher, int x, int y, guchar *pixel);
+
+const Babl *DrawableU8Format(GimpDrawable *drawable, int *bpp);
 
 void Render (GimpImage *image,
 		GimpDrawable *drawable,
@@ -100,7 +108,7 @@ int RenderChannels(RenderData *rdat);
 int RenderWarp(RenderData *rdat, int overscan);
 int RenderLow(RenderData *rdat, int plane);
 void Blend(RenderData *rdat, guchar *bg, guchar *dest, int row_stride, int bytes_pp);
-void Warp(RenderData *rdat, GimpPixelFetcher *fetcher, guchar *dest, int row_stride, int bytes_pp, int overscan);
+void Warp(RenderData *rdat, PixelFetcher *fetcher, guchar *dest, int row_stride, int bytes_pp, int overscan);
 
 void InitRenderData(RenderData *rdat);
 void DeinitRenderData(RenderData *rdat);

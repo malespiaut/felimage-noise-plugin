@@ -22,6 +22,8 @@
 
 #include "config.h"
 
+#include <string.h>
+
 #include <gtk/gtk.h>
 
 #include <libgimp/gimp.h>
@@ -48,20 +50,106 @@
 #define FN_MODE(FUNCTION,REVERSE) ((FUNCTION<<1)+REVERSE)
 
 
-GimpPixelFetcher *GetPixelFetcher(PluginState *state, GimpDrawable *drawable) {
-	GimpPixelFetcher *fetcher;
-	GimpRGB bg_color;
-	
-	fetcher = gimp_pixel_fetcher_new(drawable, FALSE);
-	
-	if (state->edge_action == GIMP_PIXEL_FETCHER_EDGE_BACKGROUND) {
-		gimp_context_get_background(&bg_color);
-		gimp_pixel_fetcher_set_bg_color (fetcher, &bg_color);
+/* Returns the u8 babl format matching how the plugin sees the drawable
+ * (it was written for GIMP 2's 8-bit tile data; babl converts on the fly
+ * for high-precision drawables).
+ */
+const Babl *DrawableU8Format(GimpDrawable *drawable, int *bpp) {
+	const Babl *format;
+
+	if (gimp_drawable_is_rgb (drawable)) {
+		format = gimp_drawable_has_alpha (drawable)
+		       ? babl_format ("R'G'B'A u8") : babl_format ("R'G'B' u8");
+	} else {
+		format = gimp_drawable_has_alpha (drawable)
+		       ? babl_format ("Y'A u8") : babl_format ("Y' u8");
 	}
 
-	gimp_pixel_fetcher_set_edge_mode(fetcher, state->edge_action);
+	if (bpp) *bpp = babl_format_get_bytes_per_pixel (format);
+
+	return format;
+}
+
+/* Replacement for GIMP 2's GimpPixelFetcher: the warp code samples the
+ * source drawable at arbitrary coordinates (up to 36 fetches per output
+ * pixel in "better" quality), so the whole drawable is copied into memory
+ * once and the edge modes are handled in plain C.  GEGL abyss policies
+ * cannot express the "background" mode anyway.
+ */
+struct PixelFetcherStr {
+	guchar *data;
+	int     width, height, bpp;
+	int     edge_mode;
+	guchar  bg[4];
+};
+
+PixelFetcher *NewPixelFetcher(PluginState *state, GimpDrawable *drawable) {
+	PixelFetcher *fetcher;
+	GeglBuffer *buffer;
+	const Babl *format;
+	int bpp;
+
+	format = DrawableU8Format (drawable, &bpp);
+
+	fetcher = g_new0 (PixelFetcher, 1);
+	fetcher->width     = gimp_drawable_get_width (drawable);
+	fetcher->height    = gimp_drawable_get_height (drawable);
+	fetcher->bpp       = bpp;
+	fetcher->edge_mode = state->edge_action;
+	fetcher->data      = g_malloc ((gsize) fetcher->width * fetcher->height * bpp);
+
+	buffer = gimp_drawable_get_buffer (drawable);
+	gegl_buffer_get (buffer,
+	                 GEGL_RECTANGLE (0, 0, fetcher->width, fetcher->height),
+	                 1.0, format, fetcher->data,
+	                 GEGL_AUTO_ROWSTRIDE, GEGL_ABYSS_NONE);
+	g_object_unref (buffer);
+
+	if (state->edge_action == EDGE_BACKGROUND) {
+		GeglColor *bg_color = gimp_context_get_background ();
+
+		gegl_color_get_pixel (bg_color, format, fetcher->bg);
+		g_object_unref (bg_color);
+	}
 
 	return fetcher;
+}
+
+void DestroyPixelFetcher(PixelFetcher *fetcher) {
+	g_free (fetcher->data);
+	g_free (fetcher);
+}
+
+void FetchPixel(PixelFetcher *fetcher, int x, int y, guchar *pixel) {
+	if (x < 0 || x >= fetcher->width || y < 0 || y >= fetcher->height) {
+		switch (fetcher->edge_mode) {
+			case EDGE_WRAP:
+				x %= fetcher->width;
+				if (x < 0) x += fetcher->width;
+				y %= fetcher->height;
+				if (y < 0) y += fetcher->height;
+				break;
+
+			case EDGE_SMEAR:
+				x = CLAMP (x, 0, fetcher->width - 1);
+				y = CLAMP (y, 0, fetcher->height - 1);
+				break;
+
+			case EDGE_BLACK:
+				/* transparent black on drawables with alpha,
+				 * like GIMP 2's pixel fetcher */
+				memset (pixel, 0, fetcher->bpp);
+				return;
+
+			case EDGE_BACKGROUND:
+				memcpy (pixel, fetcher->bg, fetcher->bpp);
+				return;
+		}
+	}
+
+	memcpy (pixel,
+	        fetcher->data + ((gsize) y * fetcher->width + x) * fetcher->bpp,
+	        fetcher->bpp);
 }
 
 
@@ -72,7 +160,7 @@ static void PrecalcRenderStuff(RenderData *rdat) {
 	guint dirty;
 	int failed;
 	double gain, pinch, bias;
-	GimpRGB col_fg_bg,col_bg;
+	gdouble col_fg_bg[4],col_bg[4];
 	char *grad_name;
 	double tmp, tmp2;
 	int tot_samples;
@@ -216,14 +304,29 @@ static void PrecalcRenderStuff(RenderData *rdat) {
 		
 		failed = 0;
 		if (state->color_src == COL_GRADIENT) {
+			GimpGradient *gradient_res = NULL;
+			GeglColor **samples = NULL;
+
 			grad_name = GetGradientName(state->gradient);
-			if (grad_name && gimp_gradient_get_uniform_samples(
-							grad_name,
-							GRADIENT_SAMPLES,
-							0,
-							&tot_samples,
-							&fp_gradient)
-			) {
+			if (grad_name) {
+				gradient_res = gimp_gradient_get_by_name(grad_name);
+			}
+			if (gradient_res) {
+				samples = gimp_gradient_get_uniform_samples(gradient_res,
+									GRADIENT_SAMPLES, 0);
+			}
+			if (samples) {
+				const Babl *rgba_format = babl_format("R'G'B'A double");
+				int n = gimp_color_array_get_length(samples);
+
+				fp_gradient = g_malloc(n * 4 * sizeof(gdouble));
+				for (i = 0; i < n; i++) {
+					gegl_color_get_pixel(samples[i], rgba_format,
+							&fp_gradient[i*4]);
+				}
+				gimp_color_array_free(samples);
+
+				tot_samples = n * 4;
 				rdat->gradient = fp_gradient;
 				if (rdat->write_mode != MODE_COLOR) {
 					for (i = j = 0; j < tot_samples; i+=2, j+=4) {
@@ -239,31 +342,37 @@ static void PrecalcRenderStuff(RenderData *rdat) {
 
 			
 		if (failed || state->color_src == COL_FG_BG) {
-				gimp_context_get_foreground(& col_fg_bg);
-				gimp_context_get_background(& col_bg);
-				
-				col_fg_bg.r -= col_bg.r;
-				col_fg_bg.g -= col_bg.b;
-				col_fg_bg.b -= col_bg.g;
-				col_fg_bg.a -= col_bg.a;
+				const Babl *rgba_format = babl_format("R'G'B'A double");
+				GeglColor *fg_color = gimp_context_get_foreground();
+				GeglColor *bg_color = gimp_context_get_background();
 
-				
+				gegl_color_get_pixel(fg_color, rgba_format, col_fg_bg);
+				gegl_color_get_pixel(bg_color, rgba_format, col_bg);
+				g_object_unref(fg_color);
+				g_object_unref(bg_color);
+
+				col_fg_bg[0] -= col_bg[0];
+				col_fg_bg[1] -= col_bg[2];
+				col_fg_bg[2] -= col_bg[1];
+				col_fg_bg[3] -= col_bg[3];
+
+
 				if (rdat->write_mode == MODE_COLOR) {
 					rdat->gradient = g_malloc(GRADIENT_SAMPLES * sizeof(double) * 4);
 					for (i = 0; i < GRADIENT_SAMPLES*4; i+=4) {
 						s = (double)i / (double)(GRADIENT_SAMPLES*4-4);
-						rdat->gradient[i+0] = SCALE_TO_BUFFER( col_fg_bg.r*s + col_bg.r );
-						rdat->gradient[i+1] = SCALE_TO_BUFFER( col_fg_bg.g*s + col_bg.g );
-						rdat->gradient[i+2] = SCALE_TO_BUFFER( col_fg_bg.b*s + col_bg.b );
+						rdat->gradient[i+0] = SCALE_TO_BUFFER( col_fg_bg[0]*s + col_bg[0] );
+						rdat->gradient[i+1] = SCALE_TO_BUFFER( col_fg_bg[1]*s + col_bg[1] );
+						rdat->gradient[i+2] = SCALE_TO_BUFFER( col_fg_bg[2]*s + col_bg[2] );
 						rdat->gradient[i+3] = VALUE_MAX;
 					}
 				} else {
 					rdat->gradient = g_malloc(GRADIENT_SAMPLES*sizeof(double) * 2);
-					col_fg_bg.r = 0.30*col_fg_bg.r + 0.59*col_fg_bg.g + 0.11*col_fg_bg.b;
-					col_bg.r    = 0.30*col_bg.r    + 0.59*col_bg.g    + 0.11*col_bg.b;
+					col_fg_bg[0] = 0.30*col_fg_bg[0] + 0.59*col_fg_bg[1] + 0.11*col_fg_bg[2];
+					col_bg[0]    = 0.30*col_bg[0]    + 0.59*col_bg[1]    + 0.11*col_bg[2];
 					for (i = 0; i < GRADIENT_SAMPLES*2; i+=2) {
 						s = (double)i / (double)(GRADIENT_SAMPLES*2-2);
-						rdat->gradient[i+0] = SCALE_TO_BUFFER( col_fg_bg.r*s + col_bg.r );
+						rdat->gradient[i+0] = SCALE_TO_BUFFER( col_fg_bg[0]*s + col_bg[0] );
 						rdat->gradient[i+1] = VALUE_MAX;
 					}
 				}
@@ -313,21 +422,26 @@ void SetRenderBufferMode(RenderData *rdat, int mode, int pixel_stride){
 }
 
 void SetRenderBufferForDrawable(RenderData *rdat, GimpDrawable *drawable){
-	int x1,y1,x2,y2;
-	
-	gimp_drawable_mask_bounds (drawable->drawable_id, &x1, &y1, &x2, &y2);
-	
-	rdat->buffer_width = x2-x1;
-	rdat->buffer_height= y2-y1;
-	rdat->x_offs = x1;
-	rdat->y_offs = y1;
+	int x,y,width,height;
+	int bpp;
 
-	switch (drawable->bpp) {
-		case 1: case 2: 
+	if (!gimp_drawable_mask_intersect (drawable, &x, &y, &width, &height)) {
+		x = y = width = height = 0;
+	}
+
+	rdat->buffer_width = width;
+	rdat->buffer_height= height;
+	rdat->x_offs = x;
+	rdat->y_offs = y;
+
+	DrawableU8Format (drawable, &bpp);
+
+	switch (bpp) {
+		case 1: case 2:
 			rdat->write_mode = MODE_GRAYSCALE;
 			rdat->pixel_stride = 2;
 			break;
-		case 3: case 4: 
+		case 3: case 4:
 			rdat->write_mode = MODE_COLOR;
 			rdat->pixel_stride = 4;
 			break;
@@ -359,97 +473,117 @@ void DeinitRenderData(RenderData *rdat) {
 
 /*****************************************************************************/
 
-void Render (gint32 image_ID,
+void Render (GimpImage *image,
             GimpDrawable *drawable,
             PluginState *state){
-	
-	GimpPixelRgn dst_rgn;
-	GimpPixelRgn src_rgn;
+
+	GeglBuffer *src_buffer;
+	GeglBuffer *dst_buffer;
+	GeglBufferIterator *iter;
+	const Babl *format;
 
 	gint    progress, max_progress;
-	gint    has_alpha, alpha;
-	gint    x1, y1, x2, y2;
-	gpointer pr;
-	GimpPixelFetcher* fetcher;
+	gint    x, y, width, height;
+	gint    bpp;
+	PixelFetcher* fetcher;
 	RenderData rdat;
-	
 
-	gimp_drawable_mask_bounds (drawable->drawable_id, &x1, &y1, &x2, &y2);
-	has_alpha = gimp_drawable_has_alpha (drawable->drawable_id);
 
-	alpha =  drawable->bpp - 1;
+	if (!gimp_drawable_mask_intersect (drawable, &x, &y, &width, &height))
+		return;
+
+	format = DrawableU8Format (drawable, &bpp);
 
 	progress = 0;
-	max_progress = (x2 - x1) * (y2 - y1);
-	
-	gimp_pixel_rgn_init(&dst_rgn, drawable, x1, y1, (x2 - x1), (y2 - y1), TRUE, TRUE);
-	gimp_pixel_rgn_init(&src_rgn, drawable, x1, y1, (x2 - x1), (y2 - y1), FALSE, FALSE);
+	max_progress = width * height;
 
-	
+	src_buffer = gimp_drawable_get_buffer (drawable);
+	dst_buffer = gimp_drawable_get_shadow_buffer (drawable);
+
+
 	InitRenderData(&rdat);
 	AssociateRenderToState(&rdat, state);
 	InitBasis(&rdat);
-	
+
 	gimp_progress_init("Rendering noise...");
 	SetRenderBufferForDrawable(&rdat, drawable);
 
 	switch (state->color_src) {
 		case COL_CHANNELS:
-			SetRenderBufferMode(&rdat, MODE_RAW, (drawable->bpp<=2) ? 2 : 4);
-			for (pr = gimp_pixel_rgns_register(2, &dst_rgn, &src_rgn); pr!=NULL; 
-			     pr = gimp_pixel_rgns_process(pr)) {
+			SetRenderBufferMode(&rdat, MODE_RAW, (bpp<=2) ? 2 : 4);
+			iter = gegl_buffer_iterator_new(dst_buffer,
+					GEGL_RECTANGLE(x, y, width, height), 0, format,
+					GEGL_ACCESS_WRITE, GEGL_ABYSS_NONE, 2);
+			gegl_buffer_iterator_add(iter, src_buffer,
+					GEGL_RECTANGLE(x, y, width, height), 0, format,
+					GEGL_ACCESS_READ, GEGL_ABYSS_NONE);
+			while (gegl_buffer_iterator_next(iter)) {
+				GeglRectangle *roi = &iter->items[0].roi;
 
-				SetRenderRegion(&rdat, dst_rgn.w, dst_rgn.h, dst_rgn.x, dst_rgn.y);
-				
+				SetRenderRegion(&rdat, roi->width, roi->height, roi->x, roi->y);
+
 				RenderChannels(&rdat);
-				Blend(&rdat, src_rgn.data, dst_rgn.data, src_rgn.rowstride, src_rgn.bpp);
+				Blend(&rdat, iter->items[1].data, iter->items[0].data,
+						roi->width * bpp, bpp);
 
-				progress += dst_rgn.w * dst_rgn.h;
+				progress += roi->width * roi->height;
 				gimp_progress_update((double) progress / max_progress);
 			}
 			break;
 		case COL_WARP:
-			SetRenderBufferMode(&rdat, MODE_RAW, 1); 
-			fetcher = GetPixelFetcher(state, drawable);
-			gimp_pixel_fetcher_set_edge_mode(fetcher, state->edge_action);
-			for (pr = gimp_pixel_rgns_register(1, &dst_rgn); pr!=NULL; 
-			     pr = gimp_pixel_rgns_process(pr)) {
+			SetRenderBufferMode(&rdat, MODE_RAW, 1);
+			fetcher = NewPixelFetcher(state, drawable);
+			iter = gegl_buffer_iterator_new(dst_buffer,
+					GEGL_RECTANGLE(x, y, width, height), 0, format,
+					GEGL_ACCESS_WRITE, GEGL_ABYSS_NONE, 1);
+			while (gegl_buffer_iterator_next(iter)) {
+				GeglRectangle *roi = &iter->items[0].roi;
 
-				SetRenderRegion(&rdat, dst_rgn.w, dst_rgn.h, dst_rgn.x, dst_rgn.y);
-				
+				SetRenderRegion(&rdat, roi->width, roi->height, roi->x, roi->y);
+
 				RenderWarp(&rdat,2);
-				Warp(&rdat, fetcher, dst_rgn.data, dst_rgn.rowstride, dst_rgn.bpp,2);
-				
-				progress += dst_rgn.w * dst_rgn.h;
+				Warp(&rdat, fetcher, iter->items[0].data,
+						roi->width * bpp, bpp,2);
+
+				progress += roi->width * roi->height;
 				gimp_progress_update((double) progress / max_progress);
 			}
 
-			gimp_pixel_fetcher_destroy(fetcher);
+			DestroyPixelFetcher(fetcher);
 			break;
-			
+
 		default:
-			for (pr = gimp_pixel_rgns_register(2, &dst_rgn, &src_rgn); pr!=NULL; 
-			     pr = gimp_pixel_rgns_process(pr)) {
-				
-				SetRenderRegion(&rdat, dst_rgn.w, dst_rgn.h, dst_rgn.x, dst_rgn.y);
-				
+			iter = gegl_buffer_iterator_new(dst_buffer,
+					GEGL_RECTANGLE(x, y, width, height), 0, format,
+					GEGL_ACCESS_WRITE, GEGL_ABYSS_NONE, 2);
+			gegl_buffer_iterator_add(iter, src_buffer,
+					GEGL_RECTANGLE(x, y, width, height), 0, format,
+					GEGL_ACCESS_READ, GEGL_ABYSS_NONE);
+			while (gegl_buffer_iterator_next(iter)) {
+				GeglRectangle *roi = &iter->items[0].roi;
+
+				SetRenderRegion(&rdat, roi->width, roi->height, roi->x, roi->y);
+
 				RenderLow(&rdat,0);
-				Blend(&rdat, src_rgn.data, dst_rgn.data, dst_rgn.rowstride, dst_rgn.bpp);
-				
-				progress += dst_rgn.w * dst_rgn.h;
+				Blend(&rdat, iter->items[1].data, iter->items[0].data,
+						roi->width * bpp, bpp);
+
+				progress += roi->width * roi->height;
 				gimp_progress_update((double) progress / max_progress);
 			}
 			break;
 	}
 
 	DeinitRenderData(&rdat);
-	
+
 	DeinitBasis();
 
-	gimp_drawable_flush (drawable);
-	gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);
-	gimp_drawable_update (drawable->drawable_id, x1, y1, (x2 - x1), (y2 - y1));
-	
+	g_object_unref (src_buffer);
+	g_object_unref (dst_buffer);
+
+	gimp_drawable_merge_shadow (drawable, TRUE);
+	gimp_drawable_update (drawable, x, y, width, height);
+
 }
 
 /* FIXME: This function is not threadsafe, it modifies (temporarily) the 'p_state' in rdat */
@@ -856,7 +990,7 @@ void Blend(RenderData *rdat, guchar *bg, guchar *dest, int row_stride, int bytes
 }
 
 
-void Warp(RenderData *rdat, GimpPixelFetcher *fetcher, guchar *dest, int row_stride, int bytes_pp, int overscan){
+void Warp(RenderData *rdat, PixelFetcher *fetcher, guchar *dest, int row_stride, int bytes_pp, int overscan){
 	int x,y;
 	int width, height;
 	int src_x, src_y;
@@ -943,7 +1077,7 @@ void Warp(RenderData *rdat, GimpPixelFetcher *fetcher, guchar *dest, int row_str
 
 					px = src_x - (int)((dx1+dx2)*0.5);
 					py = src_y - (int)((dy1+dy2)*0.5);
-					gimp_pixel_fetcher_get_pixel(fetcher, px, py, dest);
+					FetchPixel(fetcher, px, py, dest);
 
 					if (area_inv > 1.0) {
 						for (i = 0; i < col_channels; i++) {
@@ -1009,7 +1143,7 @@ void Warp(RenderData *rdat, GimpPixelFetcher *fetcher, guchar *dest, int row_str
 						for (ix = 0; ix < x_samples; ix ++) {
 							/* FIXME: we could add some jitter, and some gaussian weighting here... 
 							 * plus correct sample averaging considering the alpha */
-							gimp_pixel_fetcher_get_pixel(fetcher, fpx, fpy, pixel);
+							FetchPixel(fetcher, fpx, fpy, pixel);
 							for (i = 0; i < bytes_pp; i++) {
 								sum[i] += pixel[i];
 							}
