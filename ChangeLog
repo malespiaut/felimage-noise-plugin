@@ -1,4 +1,4 @@
-2026-07-11	Marc-Alexandre Espiaut	<factures.mae@posteo.eu>
+2026-07-11	Marc-Alexandre Espiaut	<ma.dev@espiaut.fr>
 	* Port to GIMP 3 and CMake, 0.2.0
 	  - GimpPlugIn entry point with typed procedure arguments
 	    (procedure renamed to plug-in-fimg-noise)
