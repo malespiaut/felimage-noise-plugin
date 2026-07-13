@@ -1,5 +1,5 @@
 /*  Felimage Noise Plugin for the GIMP
- *  Copyright (C) 2005 Guillermo Romero Franco <drirr_gato@users.sourceforge.net>
+ *  Copyright (C) 2005 Guillermo Romero Franco <drirr.gato@gmail.com>
  *
  *  This file is part of the Felimage Noise Plugin for the GIMP
  *
@@ -273,7 +273,7 @@ static GimpProcedure *felimage_create_procedure (GimpPlugIn *plug_in,
 	                                  "sources, or by warping the image.",
 	                                  PROCEDURE_NAME);
 	gimp_procedure_set_attribution (procedure,
-	                                "Guillermo Romero <drirr_gato@users.sourceforge.net>",
+	                                "Guillermo Romero <drirr.gato@gmail.com>",
 	                                "Guillermo Romero",
 	                                "2005");
 
