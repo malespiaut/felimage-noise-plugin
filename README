@@ -1,7 +1,7 @@
 Felimage Noise
 ==============
 
-Copyright (C) 2005 Guillermo Romero Franco <drirr_gato@users.sourceforge.net>
+Copyright (C) 2005 Guillermo Romero Franco <drirr.gato@gmail.com>
 
 A procedural noise/texture plug-in for GIMP 3. It renders lattice, sparse
 and cellular noise (combined as fBm or multifractals) into the active
